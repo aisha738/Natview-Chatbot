@@ -12,30 +12,17 @@ st.set_page_config(page_title="Natview AI Chatbot", page_icon="🤖")
 # ======================
 # INITIALIZATION
 # ======================
-def initialize_services() -> Optional[Dict]:
-    """Initialize all API services with proper error handling"""
-    try:
-        required_keys = {
-            'PINECONE_API_KEY': 'Pinecone',
-            'GROQ_API_KEY': 'Groq',
-            'OPENAI_API_KEY': 'OpenAI',
-            'SERPER_API_KEY': 'Serper'
-        }
-        
-        missing = [name for key, name in required_keys.items() if key not in st.secrets]
-        if missing:
-            st.error(f"Missing secrets for: {', '.join(missing)}")
-            return None
+def initialize_pinecone() -> Optional[Dict]:
+    """Initialize Pinecone with proper API key handling"""
+    api_key = st.secrets.get("PINECONE_API_KEY")
 
-        # Initialize Pinecone
-        pc = Pinecone(api_key=st.secrets["PINECONE_API_KEY"])
-        index_name = "chatbot-index"
-        
-        if index_name not in pc.list_indexes():
-            st.error(f"Pinecone index '{index_name}' not found.")
-            return None
-        
-        index = pc.Index(index_name)
+    if not api_key:
+        st.error("❌ Pinecone API key is missing. Check Streamlit secrets.")
+        return None
+
+    try:
+        pc = Pinecone(api_key=api_key)
+        index = pc.Index("chatbot-index")  # Ensure index exists
         
         # Test Pinecone connection
         try:
@@ -43,8 +30,6 @@ def initialize_services() -> Optional[Dict]:
         except Exception as e:
             st.error(f"Pinecone connection failed: {str(e)}")
             return None
-
-        openai.api_key = st.secrets["OPENAI_API_KEY"]
         
         return {
             'pinecone_index': index,
@@ -52,7 +37,7 @@ def initialize_services() -> Optional[Dict]:
             'serper_key': st.secrets["SERPER_API_KEY"]
         }
     except Exception as e:
-        st.error(f"Initialization error: {str(e)}")
+        st.error(f"⚠️ Pinecone initialization failed: {str(e)}")
         return None
 
 # ======================
@@ -71,7 +56,7 @@ def get_chatbot_response(query: str, api_key: str) -> str:
                 "model": "llama3-8b",
                 "messages": [{"role": "user", "content": query}]
             },
-            timeout=10
+            timeout=10  # Prevent hanging
         )
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
@@ -112,7 +97,7 @@ def search_web(query: str, api_key: str) -> str:
             timeout=10
         )
         response.raise_for_status()
-        results = response.json().get("organic", [])[:3]
+        results = response.json().get("organic", [])[:3]  # Top 3 results
         return "\n".join(f"• [{res['title']}]({res['link']})" for res in results)
     except requests.exceptions.RequestException as e:
         return f"⚠️ Search error: {str(e)}"
@@ -124,10 +109,12 @@ def main():
     st.title("Natview AI Chatbot")
     st.caption("Powered by Groq, Pinecone, OpenAI, and Serper")
 
-    services = initialize_services()
+    # Initialize services
+    services = initialize_pinecone()
     if not services:
         st.stop()
 
+    # Chat interface
     with st.form("chat_form"):
         query = st.text_input("Ask me anything:", placeholder="Type your question...")
         submitted = st.form_submit_button("Submit")
