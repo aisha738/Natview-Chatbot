@@ -1,24 +1,20 @@
-import streamlit as st
-import requests
-import openai
-import pinecone
 import os
 from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Securely fetch API keys
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-SERPER_API_KEY = os.getenv("SERPER_API_KEY")
-
-# Initialize Pinecone
+import streamlit as st
 from pinecone import Pinecone
 
-# Initialize
-pc = Pinecone(api_key=PINECONE_API_KEY)  
+# Load environment variables
+load_dotenv()
+
+# Get API key (prefers Streamlit secrets in production)
+pinecone_key = st.secrets.get("PINECONE_API_KEY") or os.getenv("PINECONE_API_KEY")
+
+if not pinecone_key:
+    st.error("Pinecone API key not found! Check your secrets/config.")
+    st.stop()
+
+pc = Pinecone(api_key=pinecone_key)
+
 index = pc.Index("chatbot-index")
 
 # Query example (v3+ syntax)
