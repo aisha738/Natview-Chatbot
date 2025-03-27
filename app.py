@@ -15,9 +15,14 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 
 # Initialize Pinecone
-pinecone.init(api_key=PINECONE_API_KEY, environment="us-west1-gcp")
-index_name = "chatbot-index"
-index = pinecone.Index(index_name)
+from pinecone import Pinecone
+
+# Initialize
+pc = Pinecone(api_key=PINECONE_API_KEY)  
+index = pc.Index("chatbot-index")
+
+# Query example (v3+ syntax)
+index.query(vector=[...], top_k=5)
 
 # Initialize OpenAI
 openai.api_key = OPENAI_API_KEY
