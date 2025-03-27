@@ -1,21 +1,33 @@
-import os
-from dotenv import load_dotenv
 import streamlit as st
 from pinecone import Pinecone
+import os
+from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
-
-# Get API key (prefers Streamlit secrets in production)
-pinecone_key = st.secrets.get("PINECONE_API_KEY") or os.getenv("PINECONE_API_KEY")
-
-if not pinecone_key:
-    st.error("Pinecone API key not found! Check your secrets/config.")
+# Initialize with error handling
+try:
+    # Try Streamlit secrets first (for deployment)
+    pinecone_key = st.secrets.get("PINECONE_API_KEY")
+    
+    # Fallback to .env for local development
+    if not pinecone_key:
+        load_dotenv()
+        pinecone_key = os.getenv("PINECONE_API_KEY")
+    
+    if not pinecone_key:
+        st.error("🚨 Pinecone API key not found! Check your secrets/config.")
+        st.stop()
+    
+    # Initialize Pinecone
+    pc = Pinecone(api_key=pinecone_key)
+    index = pc.Index("chatbot-index")
+    
+    # Test connection
+    index.describe_index_stats()
+    st.success("✅ Successfully connected to Pinecone!")
+    
+except Exception as e:
+    st.error(f"❌ Pinecone initialization failed: {str(e)}")
     st.stop()
-
-pc = Pinecone(api_key=pinecone_key)
-
-index = pc.Index("chatbot-index")
 
 # Query example (v3+ syntax)
 index.query(vector=[...], top_k=5)
