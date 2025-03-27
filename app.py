@@ -1,120 +1,156 @@
 import streamlit as st
 from pinecone import Pinecone
 import openai
-import os
 import requests
-from dotenv import load_dotenv
+import time
+from typing import Optional, Dict, List
 
-# --- Configuration ---
-load_dotenv()  # Load .env file for local development
+# ======================
+# APP CONFIGURATION
+# ======================
+st.set_page_config(page_title="Natview AI Chatbot", page_icon="🤖")
 
-# Initialize all API keys with proper error handling
-try:
-    # Pinecone
-    pinecone_key = st.secrets.get("PINECONE_API_KEY") or os.getenv("PINECONE_API_KEY")
-    if not pinecone_key:
-        st.error("Missing Pinecone API Key! Add to Streamlit Secrets or .env file")
-        st.stop()
-    
-    pc = Pinecone(api_key=pinecone_key)
-    index = pc.Index("chatbot-index")
-    
-    # Test Pinecone connection
+# ======================
+# INITIALIZATION
+# ======================
+def initialize_services() -> Optional[Dict]:
+    """Initialize all API services with proper error handling"""
     try:
-        index.describe_index_stats()
-    except Exception as e:
-        st.error(f"Pinecone connection failed: {str(e)}")
-        st.stop()
-
-    # Other API keys
-    GROQ_API_KEY = st.secrets.get("GROQ_API_KEY") or os.getenv("GROQ_API_KEY")
-    OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-    SERPER_API_KEY = st.secrets.get("SERPER_API_KEY") or os.getenv("SERPER_API_KEY")
-    
-    openai.api_key = OPENAI_API_KEY
-
-except Exception as e:
-    st.error(f"Initialization error: {str(e)}")
-    st.stop()
-
-# --- Core Functions ---
-def get_chatbot_response(query):
-    """Get response from Groq API"""
-    try:
-        url = "https://api.groq.com/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json"
+        # Verify all required secrets exist
+        required_keys = {
+            'PINECONE_API_KEY': 'Pinecone',
+            'GROQ_API_KEY': 'Groq',
+            'OPENAI_API_KEY': 'OpenAI',
+            'SERPER_API_KEY': 'Serper'
         }
-        data = {
-            "model": "llama3-8b",
-            "messages": [{"role": "user", "content": query}]
+        
+        missing = [name for key, name in required_keys.items() if key not in st.secrets]
+        if missing:
+            st.error(f"Missing secrets for: {', '.join(missing)}")
+            return None
+
+        # Initialize Pinecone
+        pc = Pinecone(api_key=st.secrets["PINECONE_API_KEY"])
+        index = pc.Index("chatbot-index")
+        
+        # Test Pinecone connection
+        try:
+            index.describe_index_stats()
+        except Exception as e:
+            st.error(f"Pinecone connection failed: {str(e)}")
+            return None
+
+        # Configure other services
+        openai.api_key = st.secrets["OPENAI_API_KEY"]
+        
+        return {
+            'pinecone_index': index,
+            'groq_key': st.secrets["GROQ_API_KEY"],
+            'serper_key': st.secrets["SERPER_API_KEY"]
         }
-        response = requests.post(url, json=data, headers=headers)
-        response.raise_for_status()
-        return response.json().get("choices", [{}])[0].get("message", {}).get("content", "No response")
-    except Exception as e:
-        return f"Error getting Groq response: {str(e)}"
 
-def search_web(query):
-    """Search web using Serper API"""
+    except Exception as e:
+        st.error(f"Initialization error: {str(e)}")
+        return None
+
+# ======================
+# CORE FUNCTIONS
+# ======================
+def get_chatbot_response(query: str, api_key: str) -> str:
+    """Get response from Groq's LLaMA model"""
     try:
-        search_url = f"https://serper.dev/search?q={query}&api_key={SERPER_API_KEY}"
-        response = requests.get(search_url)
+        response = requests.post(
+            "https://api.groq.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "llama3-8b",
+                "messages": [{"role": "user", "content": query}]
+            },
+            timeout=10  # Prevent hanging
+        )
         response.raise_for_status()
-        results = response.json().get("organic_results", [])
-        return "\n".join([f"- {r['title']}: {r['link']}" for r in results[:3]])
-    except Exception as e:
-        return f"Error performing web search: {str(e)}"
+        return response.json()["choices"][0]["message"]["content"]
+    except requests.exceptions.RequestException as e:
+        return f"⚠️ API Error: {str(e)}"
 
-def get_openai_embedding(query):
-    """Get embeddings from OpenAI"""
+def get_openai_embedding(query: str) -> Optional[List[float]]:
+    """Generate embeddings using OpenAI"""
     try:
         response = openai.Embedding.create(
             model="text-embedding-ada-002",
             input=query
         )
-        return response['data'][0]['embedding']
+        return response["data"][0]["embedding"]
     except Exception as e:
-        st.error(f"Error getting embeddings: {str(e)}")
+        st.error(f"Embedding error: {str(e)}")
         return None
 
-def search_pinecone(query_embedding):
-    """Search Pinecone index"""
+def search_pinecone(index, embedding: List[float]) -> str:
+    """Query Pinecone vector database"""
     try:
         result = index.query(
-            vector=query_embedding,
+            vector=embedding,
             top_k=1,
             include_metadata=True
         )
-        if result['matches']:
-            return result['matches'][0]['metadata']['text']
-        return "No relevant information found in Pinecone."
+        return result["matches"][0]["metadata"]["text"] if result["matches"] else "No relevant results found."
     except Exception as e:
-        return f"Error searching Pinecone: {str(e)}"
+        return f"⚠️ Pinecone error: {str(e)}"
 
-# --- Streamlit UI ---
+def search_web(query: str, api_key: str) -> str:
+    """Get search results from Serper"""
+    try:
+        response = requests.get(
+            "https://serper.dev/search",
+            params={"q": query},
+            headers={"X-API-KEY": api_key},
+            timeout=10
+        )
+        response.raise_for_status()
+        results = response.json().get("organic", [])[:3]  # Top 3 results
+        return "\n".join(f"• [{res['title']}]({res['link']})" for res in results)
+    except requests.exceptions.RequestException as e:
+        return f"⚠️ Search error: {str(e)}"
+
+# ======================
+# STREAMLIT UI
+# ======================
 def main():
     st.title("Natview AI Chatbot")
-    st.write("An AI chatbot powered by Groq, Pinecone, OpenAI, and Serper.")
+    st.caption("Powered by Groq, Pinecone, OpenAI, and Serper")
 
-    user_input = st.text_input("Ask me anything:")
-    if st.button("Send") and user_input:
-        with st.spinner("Processing..."):
-            # Get chatbot response
-            response = get_chatbot_response(user_input)
-            st.write("**Chatbot (Groq):**", response)
+    # Initialize services
+    services = initialize_services()
+    if not services:
+        st.stop()
 
-            # Get and search embeddings
-            query_embedding = get_openai_embedding(user_input)
-            if query_embedding:
-                pinecone_result = search_pinecone(query_embedding)
-                st.write("**Pinecone Search Result:**", pinecone_result)
+    # Chat interface
+    with st.form("chat_form"):
+        query = st.text_input("Ask me anything:", placeholder="Type your question...")
+        submitted = st.form_submit_button("Submit")
 
-            # Web search
-            st.write("\n🔎 **Related Web Search Results (Serper):**")
-            web_results = search_web(user_input)
-            st.write(web_results)
+    if submitted and query:
+        with st.spinner("Generating response..."):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("AI Response")
+                response = get_chatbot_response(query, services['groq_key'])
+                st.markdown(response)
+
+            with col2:
+                st.subheader("Knowledge Base")
+                embedding = get_openai_embedding(query)
+                if embedding:
+                    pinecone_result = search_pinecone(services['pinecone_index'], embedding)
+                    st.markdown(pinecone_result)
+
+            st.divider()
+            with st.expander("🌐 Web Search Results"):
+                st.markdown(search_web(query, services['serper_key']))
 
 if __name__ == "__main__":
     main()
