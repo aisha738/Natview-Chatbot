@@ -8,7 +8,7 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 import pinecone
 from langchain.tools.tavily_search import TavilySearchResults
 
-Retrieve API keys from Streamlit Secrets
+#Retrieve API keys from Streamlit Secrets
 GROQ_API_KEY = st.secrets[GROQ_API_KEY]
 OPENAI_API_KEY = st.secrets[OPENAI_API_KEY]
 PINECONE_API_KEY = st.secrets[PINECONE_API_KEY]
