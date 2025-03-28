@@ -21,7 +21,7 @@ TAVILY_API_KEY = st.secrets["TAVILY_API_KEY"]
 pc = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
 
 # Define the correct index name
-index_name = "index"
+index_name = "langchain-test-index"
 existing_indexes = [index_info["name"] for index_info in pc.list_indexes()]
 
 if index_name not in existing_indexes:
@@ -40,13 +40,15 @@ index = pc.Index(index_name)
 search_tool = TavilySearchResults(api_key=TAVILY_API_KEY)
 
 # Initialize session state for search history
-toggle_sidebar = st.sidebar.checkbox("📜 Show Search History")
 if 'search_history' not in st.session_state:
     st.session_state['search_history'] = []
 
+if 'sidebar_state' not in st.session_state:
+    st.session_state['sidebar_state'] = False
+
 def get_retriever():
     embeddings = OpenAIEmbeddings()
-    vectorstore = Pinecone.from_existing_index(index, embeddings)
+    vectorstore = Pinecone.from_existing_index(index_name, embeddings)
     return vectorstore.as_retriever()
 
 def chatbot_response(query):
@@ -69,10 +71,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Sidebar for search history
-if toggle_sidebar:
-    st.sidebar.header("Search History")
-    for past_query in st.session_state['search_history']:
-        st.sidebar.write(past_query)
+with st.sidebar:
+    if st.button("📜 Toggle Search History"):
+        st.session_state['sidebar_state'] = not st.session_state['sidebar_state']
+    if st.session_state['sidebar_state']:
+        st.sidebar.header("Search History")
+        for past_query in st.session_state['search_history']:
+            st.sidebar.write(past_query)
 
 user_input = st.text_input("Ask a question:")
 use_web_search = st.checkbox("Use live web search if needed")
@@ -94,5 +99,6 @@ if search_button and user_input:
     # Display results in a structured and direct format
     st.markdown("### 🔍 Answer:")
     st.write(response)
+
 
 
