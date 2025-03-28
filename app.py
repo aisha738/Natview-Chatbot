@@ -6,6 +6,7 @@ from langchain_openai import OpenAI
 from langchain.vectorstores import Pinecone
 from langchain.embeddings.openai import OpenAIEmbeddings
 import pinecone
+from pinecone import Pinecone, ServerlessSpec
 from langchain.tools.tavily_search import TavilySearchResults
 
 #Retrieve API keys from Streamlit Secrets
@@ -16,7 +17,19 @@ PINECONE_ENV = st.secrets["PINECONE_ENV"]
 TAVILY_API_KEY = st.secrets["TAVILY_API_KEY"]
 
 # Initialize Pinecone
-pinecone.init(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
+pc = Pinecone(api_key=st.secrets["PINECONE_API_KEY"])
+
+# Now you can interact with Pinecone as you did before
+if 'my_index' not in pc.list_indexes().names():
+    pc.create_index(
+        name='my_index', 
+        dimension=1536, 
+        metric='euclidean', 
+        spec=ServerlessSpec(
+            cloud='aws',
+            region='us-west-2'
+        )
+    )
 
 # Initialize Tavily search tool
 search_tool = TavilySearchResults(api_key=TAVILY_API_KEY)
