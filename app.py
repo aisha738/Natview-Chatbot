@@ -9,7 +9,6 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 import pinecone
 from pinecone import Pinecone, ServerlessSpec
 from langchain.tools.tavily_search import TavilySearchResults
-from streamlit_extras.app_logo import add_logo
 
 # Retrieve API keys from Streamlit Secrets
 GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
@@ -95,3 +94,4 @@ if search_button and user_input:
     # Display results in a structured and direct format
     st.markdown("### 🔍 Answer:")
     st.write(response)
+
