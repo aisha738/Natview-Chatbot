@@ -20,7 +20,7 @@ TAVILY_API_KEY = st.secrets["TAVILY_API_KEY"]
 pc = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
 
 # Now you can interact with Pinecone as you did before
-if 'index_name' not in pc.list_indexes():
+if 'langchain-test-index' not in pc.list_indexes():
     pc.create_index(
         name='my_index', 
         dimension=1536, 
