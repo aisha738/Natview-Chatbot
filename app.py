@@ -46,7 +46,7 @@ if 'search_history' not in st.session_state:
 
 def get_retriever():
     embeddings = OpenAIEmbeddings()
-    vectorstore = Pinecone.from_existing_index(index_name, embeddings)
+    vectorstore = Pinecone.from_existing_index(index, embeddings)
     return vectorstore.as_retriever()
 
 def chatbot_response(query):
