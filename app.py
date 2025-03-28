@@ -9,11 +9,18 @@ import pinecone
 from langchain.tools.tavily_search import TavilySearchResults
 
 # Retrieve API keys from Streamlit Secrets
-GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
-PINECONE_ENV = st.secrets["PINECONE_ENV"]
-TAVILY_API_KEY = st.secrets["TAVILY_API_KEY"]
+# GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+# OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+#PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
+#PINECONE_ENV = st.secrets["PINECONE_ENV"]
+#TAVILY_API_KEY = st.secrets["TAVILY_API_KEY"]
+
+PINECONE_API_KEY="pc4BAwuS_MvNfWZwdAa72JZQBYPDC3ZX98Mjtozv5UppsZx3CkUMrbNosF8n6vo9xxG5awXS"
+GROQ_API_KEY="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"
+OPENAI_API_KEY="sk-proj-iXWVY2y83TgqfrrSEW8hdh73SDKPZ8NzohuIZM5WrR4Uzl5PUqFuWiXB20hWRjXQ1AAOuoGcWiT3BlbkFJvHJ4wtrk4HzGKF3JOlA_VhWKErmUvXIkgmAefPnNR8lZrRmY2gZMaPecIZjgJpVAti27MA"
+SERPER_API_KEY="fee3f70571c3c4be9d5d3e193e0946fa169c6405"
+TAVILY_API_KEY="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"
+PINECONE_ENV="us-east-1-aws"
 
 # Initialize Pinecone
 pinecone.init(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
