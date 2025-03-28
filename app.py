@@ -21,7 +21,7 @@ TAVILY_API_KEY = st.secrets["TAVILY_API_KEY"]
 pc = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
 
 # Define the correct index name
-index_name = "langchain-test-index"
+index_name = "index"
 existing_indexes = [index_info["name"] for index_info in pc.list_indexes()]
 
 if index_name not in existing_indexes:
