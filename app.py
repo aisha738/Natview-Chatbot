@@ -47,7 +47,7 @@ if 'sidebar_state' not in st.session_state:
     st.session_state['sidebar_state'] = False
 
 def get_retriever():
-    embeddings = OpenAIEmbeddings()
+    embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
     vectorstore = PineconeVectorStore.from_existing_index(index_name, embeddings)
     return vectorstore.as_retriever()
 
@@ -72,7 +72,7 @@ st.markdown("""
 
 # Sidebar for search history
 with st.sidebar:
-    if st.button("📜 Toggle Search History"):
+    if st.button("📜Search History"):
         st.session_state['sidebar_state'] = not st.session_state['sidebar_state']
     if st.session_state['sidebar_state']:
         st.sidebar.header("Search History")
