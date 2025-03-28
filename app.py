@@ -47,7 +47,7 @@ if 'sidebar_state' not in st.session_state:
     st.session_state['sidebar_state'] = False
 
 def get_retriever():
-    embeddings = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
+    embeddings = OpenAIEmbeddings()
     vectorstore = PineconeVectorStore.from_existing_index(index_name, embeddings)
     return vectorstore.as_retriever()
 
