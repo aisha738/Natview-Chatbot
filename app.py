@@ -19,7 +19,7 @@ TAVILY_API_KEY = st.secrets["TAVILY_API_KEY"]
 # Initialize Pinecone
 pc = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
 
-# Now you can interact with Pinecone as you did before
+"""# Now you can interact with Pinecone as you did before
 if 'langchain-test-index' not in pc.list_indexes():
     pc.create_index(
         name='my_index', 
@@ -29,7 +29,7 @@ if 'langchain-test-index' not in pc.list_indexes():
             cloud='aws',
             region='us-west-2'
         )
-    )
+    )"""
 
 # Initialize Tavily search tool
 search_tool = TavilySearchResults(api_key=TAVILY_API_KEY)
@@ -40,7 +40,7 @@ if 'search_history' not in st.session_state:
 
 def get_retriever():
     embeddings = OpenAIEmbeddings()
-    vectorstore = Pinecone.from_existing_index("langchain-test-index", embeddings)
+    vectorstore = Pinecone.from_existing_index("index", embeddings)
     return vectorstore.as_retriever()
 
 def chatbot_response(query):
