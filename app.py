@@ -4,7 +4,7 @@ import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.chains import RetrievalQA
 from langchain_openai import OpenAI
-from langchain.vectorstores import Pinecone
+from langchain.vectorstores import Pinecone as PineconeVectorStore
 from langchain.embeddings.openai import OpenAIEmbeddings
 import pinecone
 from pinecone import Pinecone, ServerlessSpec
@@ -21,7 +21,7 @@ TAVILY_API_KEY = st.secrets["TAVILY_API_KEY"]
 pc = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
 
 # Define the correct index name
-index_name = "index"
+index_name = "langchain-test-index"
 existing_indexes = [index_info["name"] for index_info in pc.list_indexes()]
 
 if index_name not in existing_indexes:
@@ -48,7 +48,7 @@ if 'sidebar_state' not in st.session_state:
 
 def get_retriever():
     embeddings = OpenAIEmbeddings()
-    vectorstore = Pinecone.from_existing_index(index_name, embeddings)
+    vectorstore = PineconeVectorStore.from_existing_index(index_name, embeddings)
     return vectorstore.as_retriever()
 
 def chatbot_response(query):
@@ -72,7 +72,7 @@ st.markdown("""
 
 # Sidebar for search history
 with st.sidebar:
-    if st.button("📜 Search History"):
+    if st.button("📜 Toggle Search History"):
         st.session_state['sidebar_state'] = not st.session_state['sidebar_state']
     if st.session_state['sidebar_state']:
         st.sidebar.header("Search History")
@@ -99,6 +99,3 @@ if search_button and user_input:
     # Display results in a structured and direct format
     st.markdown("### 🔍 Answer:")
     st.write(response)
-
-
-
