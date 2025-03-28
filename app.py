@@ -9,11 +9,11 @@ import pinecone
 from langchain.tools.tavily_search import TavilySearchResults
 
 #Retrieve API keys from Streamlit Secrets
-GROQ_API_KEY = st.secrets[GROQ_API_KEY]
-OPENAI_API_KEY = st.secrets[OPENAI_API_KEY]
-PINECONE_API_KEY = st.secrets[PINECONE_API_KEY]
-PINECONE_ENV = st.secrets[PINECONE_ENV]
-TAVILY_API_KEY = st.secrets[TAVILY_API_KEY]
+GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
+PINECONE_ENV = st.secrets["PINECONE_ENV"]
+TAVILY_API_KEY = st.secrets["TAVILY_API_KEY"]
 
 # Initialize Pinecone
 pinecone.init(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
