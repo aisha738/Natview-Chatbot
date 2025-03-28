@@ -19,18 +19,6 @@ TAVILY_API_KEY = st.secrets["TAVILY_API_KEY"]
 # Initialize Pinecone
 pc = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
 
-"""# Now you can interact with Pinecone as you did before
-if 'langchain-test-index' not in pc.list_indexes():
-    pc.create_index(
-        name='my_index', 
-        dimension=1536, 
-        metric='euclidean', 
-        spec=ServerlessSpec(
-            cloud='aws',
-            region='us-west-2'
-        )
-    )"""
-
 # Initialize Tavily search tool
 search_tool = TavilySearchResults(api_key=TAVILY_API_KEY)
 
@@ -65,9 +53,24 @@ use_web_search = st.checkbox("Use live web search if needed")
 
 if user_input:
     st.session_state['search_history'].append(user_input)  # Store query in history
-    if use_web_search:
-        response = search_web(user_input)  # Use Tavily for live search
-    else:
-        response = chatbot_response(user_input)  # Use Pinecone retrieval
+
+    # Retrieve from Pinecone first
+    pinecone_response = chatbot_response(user_input)
     
-    st.write("Response:", response)
+    if pinecone_response:  # If Pinecone returns relevant data
+        st.markdown("### ✅ Database Match Found!")
+        response = pinecone_response
+    else:  # If no relevant data, fall back to Web Search
+        st.markdown("### 🌐 No match found in the database, searching online...")
+        response = search_web(user_input)
+
+    # Display results in a structured and colorful format
+    st.markdown("### 🔍 Here’s what I found:")
+
+    for idx, result in enumerate(response):
+        st.markdown(f"""
+        **{idx+1}. {result['title']}**  
+        🌐 [Visit Website]({result['url']})  
+        📌 **Relevance Score:** `{result['score']:.2f}`  
+        📝 **Summary:** {result['content'][:300]}...  
+        """, unsafe_allow_html=True)
