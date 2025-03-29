@@ -3,7 +3,7 @@ import time
 import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.chains import RetrievalQA
-from langchain.vectorstores import Pinecone as PineconeVectorStore
+from langchain_community.vectorstores import Pinecone as PineconeVectorStore # corrected import
 from langchain.embeddings.base import Embeddings
 import pinecone
 from pinecone import Pinecone, ServerlessSpec
@@ -38,26 +38,31 @@ if index_name not in existing_indexes:
 index = pc.Index(index_name)
 
 # Initialize Google Gemini client for embeddings
-client = genai.Client(api_key="GEMINI_API_KEY")
+genai.configure(api_key=GEMINI_API_KEY)  # corrected, uses GEMINI_API_KEY from secrets
+model = genai.GenerativeModel('gemini-pro')
 
 # Define your embeddings class
 class GeminiEmbeddings(Embeddings):
     def embed_documents(self, texts):
         embeddings = []
         for text in texts:
-            result = client.models.embed_content(
-                model="gemini-embedding-exp-03-07",  # Adjust this to the desired model
-                contents=text
+            result = genai.embed_content( # corrected, uses genai.embed_content
+                model="models/embedding-001",  # Adjust this to the desired model.embedding endpoint
+                content=text,
+                task_type="retrieval_document",
+                title="document"
             )
-            embeddings.append(result.embeddings)
+            embeddings.append(result["embedding"])
         return embeddings
 
     def embed_query(self, text):
-        result = client.models.embed_content(
-            model="gemini-embedding-exp-03-07",  # Adjust this to the desired model
-            contents=text
+        result = genai.embed_content( # corrected, uses genai.embed_content
+            model="models/embedding-001",  # Adjust this to the desired model.embedding endpoint
+            content=text,
+            task_type="retrieval_query",
+            title="query"
         )
-        return result.embeddings
+        return result["embedding"]
 
 # Initialize the retriever using Pinecone
 def get_retriever():
@@ -74,14 +79,14 @@ def groq_chatbot_response(query):
     }
     payload = {
         "input": query,
-        "model": "your-groq-model",  # Adjust this with the correct Groq model name
+        "model": "llama2-70b-4096",  # Adjust this with the correct Groq model name.
         "temperature": 0.7,
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
 
     if response.status_code == 200:
         result = response.json()
-        return result['text']  # Assuming the response contains a 'text' field
+        return result['choices'][0]['message']['content']  # Assuming the response contains a 'text' field
     else:
         return f"Error: {response.status_code} - {response.text}"
 
@@ -100,6 +105,12 @@ def chatbot_response(query):
 # Streamlit UI
 st.markdown("<h1 style='text-align: center; color: blue;'>NatBot</h1>", unsafe_allow_html=True)
 st.markdown("<h4 style='text-align: center; font-size: 16px;'>Your AI Companion for NFTI – Information at Your Fingertips</h4>", unsafe_allow_html=True)
+
+# Initialize session state for search history
+if 'search_history' not in st.session_state:
+    st.session_state['search_history'] = []
+if 'sidebar_state' not in st.session_state:
+    st.session_state['sidebar_state'] = False
 
 # Sidebar for search history
 with st.sidebar:
