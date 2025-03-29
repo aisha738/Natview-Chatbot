@@ -11,3 +11,4 @@ faiss-cpu
 langchain_groq
 langchain-pinecone
 tavily-python
+google-generativeai
