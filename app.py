@@ -3,16 +3,14 @@ import time
 import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.chains import RetrievalQA
-from langchain_openai import OpenAI
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain.vectorstores import Pinecone as PineconeVectorStore
-from langchain.embeddings.openai import OpenAIEmbeddings
 import pinecone
 from pinecone import Pinecone, ServerlessSpec
 from langchain.tools.tavily_search import TavilySearchResults
 
 # Retrieve API keys from Streamlit Secrets
-GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
-OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
+GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
 PINECONE_ENV = st.secrets["PINECONE_ENV"]
 TAVILY_API_KEY = st.secrets["TAVILY_API_KEY"]
@@ -27,7 +25,7 @@ existing_indexes = [index_info["name"] for index_info in pc.list_indexes()]
 if index_name not in existing_indexes:
     pc.create_index(
         name=index_name,
-        dimension=3072,
+        dimension=768,  # Adjusted for Gemini embeddings
         metric="cosine",
         spec=ServerlessSpec(cloud="aws", region="us-east-1"),
     )
@@ -47,13 +45,14 @@ if 'sidebar_state' not in st.session_state:
     st.session_state['sidebar_state'] = False
 
 def get_retriever():
-    embeddings = OpenAIEmbeddings()
+    """Initialize Gemini embeddings and create retriever from Pinecone index."""
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", api_key=GEMINI_API_KEY)
     vectorstore = PineconeVectorStore.from_existing_index(index_name, embeddings)
     return vectorstore.as_retriever()
 
 def chatbot_response(query):
     retriever = get_retriever()
-    qa_chain = RetrievalQA.from_chain_type(llm=OpenAI(), retriever=retriever)
+    qa_chain = RetrievalQA.from_chain_type(llm=None, retriever=retriever)  # No OpenAI LLM
     return qa_chain.run(query)
 
 def search_web(query):
