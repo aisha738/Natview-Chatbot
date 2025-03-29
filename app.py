@@ -3,13 +3,14 @@ import time
 import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.chains import RetrievalQA
-from langchain_community.vectorstores import Pinecone as PineconeVectorStore # corrected import
+from langchain_community.vectorstores import Pinecone as PineconeVectorStore  # corrected import
 from langchain.embeddings.base import Embeddings
 import pinecone
 from pinecone import Pinecone, ServerlessSpec
 import google.generativeai as genai
 import requests  # For Groq API
 import json
+from langchain.llms import LLM
 
 # Retrieve API keys from Streamlit Secrets
 PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
@@ -46,7 +47,7 @@ class GeminiEmbeddings(Embeddings):
     def embed_documents(self, texts):
         embeddings = []
         for text in texts:
-            result = genai.embed_content( # corrected, uses genai.embed_content
+            result = genai.embed_content(  # corrected, uses genai.embed_content
                 model="models/embedding-001",  # Adjust this to the desired model.embedding endpoint
                 content=text,
                 task_type="retrieval_document",
@@ -56,7 +57,7 @@ class GeminiEmbeddings(Embeddings):
         return embeddings
 
     def embed_query(self, text):
-        result = genai.embed_content( # corrected, uses genai.embed_content
+        result = genai.embed_content(  # corrected, uses genai.embed_content
             model="models/embedding-001",  # Adjust this to the desired model.embedding endpoint
             content=text,
             task_type="retrieval_query",
@@ -90,11 +91,23 @@ def groq_chatbot_response(query):
     else:
         return f"Error: {response.status_code} - {response.text}"
 
+# Define a wrapper class to use Groq as an LLM
+class GroqLLM(LLM):
+    def __init__(self, api_key):
+        self.api_key = api_key
+
+    def _call(self, prompt: str) -> str:
+        return groq_chatbot_response(prompt)
+
+    @property
+    def _identifying_params(self) -> dict:
+        return {"groq_api_key": self.api_key}
+
 # Chatbot response logic using Pinecone + Groq
 def chatbot_response(query):
     # First, try to retrieve from Pinecone (database)
     retriever = get_retriever()
-    qa_chain = RetrievalQA.from_chain_type(llm=None, retriever=retriever)  # Replace with actual LLM if needed
+    qa_chain = RetrievalQA.from_chain_type(llm=GroqLLM(api_key=GROQ_API_KEY), retriever=retriever)  # Replace with actual LLM if needed
     pinecone_response = qa_chain.run(query)
 
     if pinecone_response:  # If Pinecone returns relevant data
