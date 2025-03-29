@@ -98,3 +98,4 @@ if search_button and user_input:
     # Display results in a structured and direct format
     st.markdown("### 🔍 Answer:")
     st.write(response)
+
