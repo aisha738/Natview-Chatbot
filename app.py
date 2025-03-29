@@ -3,17 +3,20 @@ import time
 import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.chains import RetrievalQA
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain.vectorstores import Pinecone as PineconeVectorStore
+from langchain.embeddings.base import Embeddings
 import pinecone
 from pinecone import Pinecone, ServerlessSpec
-from langchain.tools.tavily_search import TavilySearchResults
+from google import genai
+import requests  # For Groq API
+import json
 
 # Retrieve API keys from Streamlit Secrets
-GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
 PINECONE_ENV = st.secrets["PINECONE_ENV"]
 TAVILY_API_KEY = st.secrets["TAVILY_API_KEY"]
+GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 
 # Initialize Pinecone
 pc = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
@@ -25,7 +28,7 @@ existing_indexes = [index_info["name"] for index_info in pc.list_indexes()]
 if index_name not in existing_indexes:
     pc.create_index(
         name=index_name,
-        dimension=768,  # Adjusted for Gemini embeddings
+        dimension=768,  # Adjust this based on the embedding model you use
         metric="cosine",
         spec=ServerlessSpec(cloud="aws", region="us-east-1"),
     )
@@ -34,40 +37,69 @@ if index_name not in existing_indexes:
 
 index = pc.Index(index_name)
 
-# Initialize Tavily search tool
-search_tool = TavilySearchResults(api_key=TAVILY_API_KEY)
+# Initialize Google Gemini client for embeddings
+client = genai.Client(api_key="GEMINI_API_KEY")
 
-# Initialize session state for search history
-if 'search_history' not in st.session_state:
-    st.session_state['search_history'] = []
+# Define your embeddings class
+class GeminiEmbeddings(Embeddings):
+    def embed_documents(self, texts):
+        embeddings = []
+        for text in texts:
+            result = client.models.embed_content(
+                model="gemini-embedding-exp-03-07",  # Adjust this to the desired model
+                contents=text
+            )
+            embeddings.append(result.embeddings)
+        return embeddings
 
-if 'sidebar_state' not in st.session_state:
-    st.session_state['sidebar_state'] = False
+    def embed_query(self, text):
+        result = client.models.embed_content(
+            model="gemini-embedding-exp-03-07",  # Adjust this to the desired model
+            contents=text
+        )
+        return result.embeddings
 
+# Initialize the retriever using Pinecone
 def get_retriever():
-    """Initialize Gemini embeddings and create retriever from Pinecone index."""
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", api_key=GEMINI_API_KEY)
+    embeddings = GeminiEmbeddings()
     vectorstore = PineconeVectorStore.from_existing_index(index_name, embeddings)
     return vectorstore.as_retriever()
 
-def chatbot_response(query):
-    retriever = get_retriever()
-    qa_chain = RetrievalQA.from_chain_type(llm=None, retriever=retriever)  # No OpenAI LLM
-    return qa_chain.run(query)
+# Groq API function to get chatbot responses
+def groq_chatbot_response(query):
+    url = "https://api.groq.ai/v1/generate"  # Replace with the actual Groq API endpoint
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "input": query,
+        "model": "your-groq-model",  # Adjust this with the correct Groq model name
+        "temperature": 0.7,
+    }
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
 
-def search_web(query):
-    return search_tool.run(query)
+    if response.status_code == 200:
+        result = response.json()
+        return result['text']  # Assuming the response contains a 'text' field
+    else:
+        return f"Error: {response.status_code} - {response.text}"
+
+# Chatbot response logic using Pinecone + Groq
+def chatbot_response(query):
+    # First, try to retrieve from Pinecone (database)
+    retriever = get_retriever()
+    qa_chain = RetrievalQA.from_chain_type(llm=None, retriever=retriever)  # Replace with actual LLM if needed
+    pinecone_response = qa_chain.run(query)
+
+    if pinecone_response:  # If Pinecone returns relevant data
+        return pinecone_response
+    else:  # If no relevant data, use Groq API for a response
+        return groq_chatbot_response(query)
 
 # Streamlit UI
 st.markdown("<h1 style='text-align: center; color: blue;'>NatBot</h1>", unsafe_allow_html=True)
 st.markdown("<h4 style='text-align: center; font-size: 16px;'>Your AI Companion for NFTI – Information at Your Fingertips</h4>", unsafe_allow_html=True)
-
-st.markdown("""
-    <style>
-        .stButton>button {width: 50%; margin: auto; display: block; background-color: blue; color: white;}
-        .stTextInput>div>div>input {margin-top: 20px;}
-    </style>
-""", unsafe_allow_html=True)
 
 # Sidebar for search history
 with st.sidebar:
@@ -79,23 +111,14 @@ with st.sidebar:
             st.sidebar.write(past_query)
 
 user_input = st.text_input("Ask a question:")
-use_web_search = st.checkbox("Use live web search if needed")
 search_button = st.button("Search")
 
 if search_button and user_input:
     st.session_state['search_history'].append(user_input)  # Store query in history
 
-    # Retrieve from Pinecone first
-    pinecone_response = chatbot_response(user_input)
-    
-    if pinecone_response:  # If Pinecone returns relevant data
-        st.markdown("### ✅ Database Match Found!")
-        response = pinecone_response
-    else:  # If no relevant data, fall back to Web Search
-        st.markdown("### 🌐 No match found in the database, searching online...")
-        response = search_web(user_input)
+    # Retrieve from Pinecone and/or Groq
+    response = chatbot_response(user_input)
 
-    # Display results in a structured and direct format
+    # Display results
     st.markdown("### 🔍 Answer:")
     st.write(response)
-
