@@ -7,7 +7,7 @@ from langchain.vectorstores import Pinecone as PineconeVectorStore
 from langchain.embeddings.base import Embeddings
 import pinecone
 from pinecone import Pinecone, ServerlessSpec
-from google import genai
+from google.cloud import genai
 import requests  # For Groq API
 import json
 
