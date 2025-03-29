@@ -12,4 +12,4 @@ langchain_groq
 langchain-pinecone
 tavily-python
 google-generativeai
-langchain-core
+langchain-core>=0.1.20
