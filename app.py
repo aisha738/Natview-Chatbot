@@ -10,7 +10,8 @@ from pinecone import Pinecone, ServerlessSpec
 import google.generativeai as genai
 import requests
 import json
-from langchain_core.llms import LLM
+from langchain.llms import LLM
+#from langchain_core.llms import LLM
 from typing import Any, Dict, List, Optional
 from langchain_core.callbacks import CallbackManagerForLLMRun
 
